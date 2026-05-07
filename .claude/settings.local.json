@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 *)",
+      "Bash(xargs ls -lh)",
+      "Bash(sort -k5 -rh)"
+    ]
+  }
+}
