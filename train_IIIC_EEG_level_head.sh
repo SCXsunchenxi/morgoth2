@@ -182,10 +182,7 @@
 ##  --add_data_transformation\
 
 
-
-# "SEIZURE" "LPD" "GPD" "LRDA" "GRDA"
-
-IIIC_datasets=("SEIZURE" "LRDA" "GRDA")
+IIIC_datasets=("SEIZURE" "LPD" "GPD" "LRDA" "GRDA")
 dataset_dirs=(
 "/data/IIIC_EEG_level/event_res/SEIZURE_segments_raw"
 "/data/IIIC_EEG_level/event_res/SEIZURE_BCH_segments_raw"
@@ -199,28 +196,16 @@ dataset_dirs=(
 "/data/IIIC_EEG_level/event_res/GLAD_segments_raw"
 )
 
-#for IIIC_dataset in "${IIIC_datasets[@]}"; do
-#    for dataset_dir in "${dataset_dirs[@]}"; do
-#        echo "exxact@1" | sudo -S $(which python) EEG_level_head.py \
-#            --mode predict \
-#            --dataset ${IIIC_dataset} \
-#            --task_model checkpoints/EEG_level/${IIIC_dataset}_EEGlevel.pth \
-#            --test_csv_dir ${dataset_dir} \
-#            --result_dir ${dataset_dir}_EEGlevel
-#
-#    done
-#done
-
-
-
 for IIIC_dataset in "${IIIC_datasets[@]}"; do
     for dataset_dir in "${dataset_dirs[@]}"; do
         echo "exxact@1" | sudo -S $(which python) EEG_level_head.py \
             --mode predict \
             --dataset ${IIIC_dataset} \
-            --task_model /home/exx/Documents/EEG_report/Morgoth2/checkpoints/EEG_level_${IIIC_dataset}/checkpoint-best.pth \
+            --task_model checkpoints/morgoth/${IIIC_dataset}_EEGlevel_2.pth \
             --test_csv_dir ${dataset_dir} \
             --result_dir ${dataset_dir}_EEGlevel
 
     done
 done
+
+
