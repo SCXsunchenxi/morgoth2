@@ -25,7 +25,7 @@ This repository contains code and tools for running EEG analysis using **Morgoth
 Before running the code, please download the pretrained model (checkpoints) and test dataset (test_data) from AWS S3 and place them in the appropriate folders:
 
 ```bash
-aws s3 cp s3://bdsp-opendata-credentialed/morgoth2/model/202605/morgoth checkpoints/ --recursive
+aws s3 cp s3://bdsp-opendata-credentialed/morgoth2/modelw/202605/morgoth checkpoints/ --recursive
 ```
 
 ## ⚙️ Setup
