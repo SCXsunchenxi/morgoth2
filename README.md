@@ -299,4 +299,5 @@ conda install numpy=1.26.4
 ## 📬 Contact
 
 For questions, please contact:  
-Chenxi Sun – csun8@bidmc.harvard.edu
+Chenxi Sun – csun8@bidmc.harvard.edu 
+cxsun@stanford.edu
