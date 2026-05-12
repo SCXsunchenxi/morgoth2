@@ -565,7 +565,7 @@ def test(n_classes, model, device, test_loader, result_dir, type, n_files, save_
                 print('None inputs, skip')
                 continue
 
-            # Check if batch has low signal flag (5th element)
+            # Check if batch contains low signal flag (5th element)
             if len(batch_data) == 5:
                 inputs, y, csv_file, lengths, is_low_signals = batch_data
                 # Handle low signal samples
@@ -663,7 +663,7 @@ def predict(args, input_dim,n_classes, class_idx, model, device, test_loader, re
                 print('None inputs, skip')
                 continue
 
-            # Check if batch has low signal flag (5th element)
+            # Check if batch contains low signal flag (5th element)
             if check_signal and len(batch_data) == 5:
                 inputs, y, csv_file, lengths, is_low_signals = batch_data
                 # Handle low signal samples
@@ -729,17 +729,27 @@ def predict(args, input_dim,n_classes, class_idx, model, device, test_loader, re
                     total = inputs[i].numel()
 
                 else:
-                    max_indices = torch.argmax(inputs[i], dim=1)  # Get index of max value per row
-                    mask = (max_indices == class_idx)  # Check if max value is in current class
-                    count = int(mask.sum().item() * event_precision)
                     total = inputs[i].shape[0]  # Number of rows, i.e., number of samples
+                    if type in ['LRDA', 'GRDA']:
+                        # Use probability threshold instead of argmax to capture intermittent patterns
+                        # argmax requires LRDA/GRDA to beat all 5 other classes — too strict for intermittent rhythms
+                        mask = (inputs[i][:, class_idx] > 1.0 / input_dim)
+                    else:
+                        max_indices = torch.argmax(inputs[i], dim=1)  # Get index of max value per row
+                        mask = (max_indices == class_idx)  # Check if max value is in current class
+                    count = int(mask.sum().item() * event_precision)
 
                 proportion = count / total
-                confidence = min(1, prob_val + proportion)
+                if type in ['LRDA', 'GRDA']:
+                    # Boost-only: small additive boost from count signal, never penalizes low count
+                    boost = min(0.1, proportion * 0.5)
+                    confidence = min(1, prob_val + boost)
+                else:
+                    confidence = min(1, prob_val + proportion)
                 if type=='SPIKES':
                     if count >= 5:
                         confidence=min(1,confidence/2+0.5)
-                else:
+                elif type not in ['LRDA', 'GRDA']:
                     if count < 10 and confidence>0.5:
                         confidence = 0.5
 
@@ -921,7 +931,7 @@ def predict_based_10min(args,input_dim, n_classes, class_idx, model, device, tes
                 print('None inputs, skip')
                 continue
 
-            # Check if batch has low signal flag (5th element)
+            # Check if batch contains low signal flag (5th element)
             if check_signal and len(batch_data) == 5:
                 inputs, y, csv_file, lengths, is_low_signals = batch_data
                 # Handle low signal samples
@@ -1010,8 +1020,13 @@ def predict_based_10min(args,input_dim, n_classes, class_idx, model, device, tes
 
                 else:
                     total = num_rows  # Number of rows, i.e., number of samples
-                    max_indices = torch.argmax(input_sample, dim=1)  # Get index of max value per row
-                    mask = (max_indices == class_idx)  # Check if max value is in current class
+                    if type in ['LRDA', 'GRDA']:
+                        # Use probability threshold instead of argmax to capture intermittent patterns
+                        # argmax requires LRDA/GRDA to beat all 5 other classes — too strict for intermittent rhythms
+                        mask = (input_sample[:, class_idx] > 1.0 / input_dim)
+                    else:
+                        max_indices = torch.argmax(input_sample, dim=1)  # Get index of max value per row
+                        mask = (max_indices == class_idx)  # Check if max value is in current class
                     count = int(mask.sum().item() * event_precision)
                     #mask_2 = input_sample[:,class_idx] > 0.8
                     #count_2 = int(mask_2.sum().item() * event_precision)
@@ -1151,6 +1166,7 @@ def predict_based_10min(args,input_dim, n_classes, class_idx, model, device, tes
 
                 except Exception as e:
                     print(f"Error processing batch: {e}")
+                    # Print shape info for debugging
                     shapes = [sample.shape for sample in batch_samples]
                     print(f"Shapes in batch: {shapes}")
                     continue
@@ -1170,7 +1186,11 @@ def predict_based_10min(args,input_dim, n_classes, class_idx, model, device, tes
                     # proportion was already incorporated in each sub-segment's sub_confidence,
                     # adding it again at the global level causes double-counting
                     # Other dataset types keep the original logic
-                    if type in ['SEIZURE', 'LPD', 'GPD', 'LRDA', 'GRDA']:
+                    if type in ['LRDA', 'GRDA']:
+                        # Boost-only: small additive boost from positive_proportion, never penalizes
+                        boost = min(0.1, res['positive_proportion'] * 0.5)
+                        confidence = min(1, max_prob + boost)
+                    elif type in ['SEIZURE', 'LPD', 'GPD']:
                         confidence = max_confidence
                     else:
                         if file_results[file_name]['sequence_length'] > sub_sample_length * 2:
@@ -1209,10 +1229,10 @@ def predict_based_10min(args,input_dim, n_classes, class_idx, model, device, tes
                     pred_class = 1 if confidence > 0.5 else 0
 
                 # [MODIFIED] SEIZURE/LPD/GPD/LRDA/GRDA only: replace hard zero-gate with sigmoid soft-gate
-                # Before: count<10 forced confidence=0, piling samples at score=0 and collapsing precision at high recall
-                # Soft-gate: count=0 -> ~x0.035, count=10 -> x0.5, count=20 -> ~x0.97 (smooth transition)
-                # Other types (BS/FOC_SPIKES/GEN_SPIKES/FOC_SLOWING/GEN_SLOWING) keep the original hard zero-gate
-                if type in ['SEIZURE', 'LPD', 'GPD', 'LRDA', 'GRDA']:
+                # LRDA/GRDA use center=5 (intermittent rhythmic patterns have fewer positive segments)
+                # SEIZURE/LPD/GPD use center=10
+                # Other types keep the original hard zero-gate
+                if type in ['SEIZURE', 'LPD', 'GPD']:
                     gate = 1.0 / (1.0 + np.exp(-(count - 10) / 3.0))
                     confidence = confidence * gate
                     pred_class = 1 if confidence > 0.5 else 0

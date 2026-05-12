@@ -222,7 +222,7 @@ def get_result_file(result_files, output_csv):
 
 
 
-def plot_roc_pr(result_csv_path, save_path, n_bootstrap=1000):
+def plot_roc_pr(result_csv_path, save_path, n_bootstrap=1000, source_filter=None):
     import os, ast
     import numpy as np
     import pandas as pd
@@ -256,6 +256,20 @@ def plot_roc_pr(result_csv_path, save_path, n_bootstrap=1000):
     df[label_col] = df[label_col].apply(
         lambda x: ast.literal_eval(x) if isinstance(x, str) else x
     )
+
+    if source_filter is not None:
+        df = df[df["source"] == source_filter].copy()
+        print(f"Filtered to source='{source_filter}', size: {len(df)}")
+
+    # For representative subset: downsample "other" class ([1,0,0,0,0,0]) to 500 samples
+    if source_filter == "representative":
+        other_mask = df[label_col].apply(lambda x: x == [1, 0, 0, 0, 0, 0])
+        other_df = df[other_mask]
+        non_other_df = df[~other_mask]
+        if len(other_df) > 50:
+            other_df = other_df.sample(n=50, random_state=42)
+            print(f"Downsampled 'other' class from {other_mask.sum()} to 50")
+        df = pd.concat([non_other_df, other_df], ignore_index=True)
 
     df = df[df["used_for_validation"] == "yes"].copy()
     print("Data size:", len(df))
@@ -321,6 +335,19 @@ def plot_roc_pr(result_csv_path, save_path, n_bootstrap=1000):
         mask_prob = ~np.isnan(y_prob)
         mask_conf = ~np.isnan(y_conf)
 
+        # For representative: downsample negatives to 50 per task
+        if source_filter == "representative":
+            neg_indices = np.where((y_true == 0) & mask_conf)[0]
+            pos_indices = np.where(y_true == 1)[0]
+            if len(neg_indices) > 50:
+                neg_indices = np.random.choice(neg_indices, size=50, replace=False)
+            keep = np.union1d(pos_indices, neg_indices)
+            subsample_mask = np.zeros(len(y_true), dtype=bool)
+            subsample_mask[keep] = True
+            mask_prob = mask_prob & subsample_mask
+            mask_conf = mask_conf & subsample_mask
+            print(f"{task}: {pos_indices.sum() if hasattr(pos_indices,'sum') else len(pos_indices)} pos, {len(neg_indices)} neg")
+
         # ===== ROC =====
         ax = axes[0, col_idx]
 
@@ -378,6 +405,17 @@ def plot_roc_pr(result_csv_path, save_path, n_bootstrap=1000):
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
 
+        # ===== Print accuracy (threshold=0.5) =====
+        for y_score, mask, name in [
+            (y_prob, mask_prob, "prob"),
+            (y_conf, mask_conf, "conf"),
+        ]:
+            if mask.sum() == 0:
+                continue
+            y_pred = (y_score[mask] > 0.5).astype(int)
+            acc = (y_pred == y_true[mask]).sum() / mask.sum()
+            print(f"{task} {name} accuracy: {acc:.4f} ({(y_pred == y_true[mask]).sum()}/{mask.sum()})")
+
     plt.tight_layout()
     plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.show()
@@ -408,5 +446,17 @@ if __name__ == "__main__":
         output_csv="/data/IIIC_EEG_level/eeglevel_results.csv")
 
     plot_roc_pr(result_csv_path = "/data/IIIC_EEG_level/eeglevel_results.csv", save_path="/data/IIIC_EEG_level/eeglevel_results.png",n_bootstrap=100)
+
+    plot_roc_pr(result_csv_path="/data/IIIC_EEG_level/eeglevel_results.csv",
+                save_path="/data/IIIC_EEG_level/eeglevel_results_sparcnettest.png",
+                n_bootstrap=100, source_filter="sparcnettest")
+
+    plot_roc_pr(result_csv_path="/data/IIIC_EEG_level/eeglevel_results.csv",
+                save_path="/data/IIIC_EEG_level/eeglevel_results_representative.png",
+                n_bootstrap=100, source_filter="representative")
+
+    plot_roc_pr(result_csv_path="/data/IIIC_EEG_level/eeglevel_results.csv",
+                save_path="/data/IIIC_EEG_level/eeglevel_results_moe.png",
+                n_bootstrap=100, source_filter="moe")
 
 # echo "exxact@1" | sudo -S ~/miniconda3/envs/torchenv/bin/python vis_IIIC_EEG_level_results.py

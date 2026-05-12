@@ -1,16 +1,23 @@
 
 # 🧠 Morgoth: Toward Automated EEG Interpretation
 
-This repository contains code and tools for running EEG analysis using **Morgoth**, including and event-level and EEG-level detection with probabilities for:
+This repository contains code and tools for running EEG analysis using **Morgoth**, including event-level and EEG-level detection with probabilities for:
 
 - Normal / Abnormal (binary)
 - Slowing: No Slowing / Focal Slowing / Generalized Slowing (in the same order as each column in the corresponding output file)
 - Burst suppression: No / Burst suppression (binary)
 - Spike detection: No / Spike (binary)
-- Spike localization: No / Focal Spike / Generalized Spike  (in the same order as each column in the corresponding output file)
+- Spike localization: No / Focal Spike / Generalized Spike (in the same order as each column in the corresponding output file)
 - IIIC classification: Other / Seizure / LPD / GPD / LRDA / GRDA (in the same order as each column in the corresponding output file)
+- IIIC classification with chewing artifact correction (binary per class, uses an auxiliary high-frequency artifact model)
 - Sleep staging (5 stages): Awake / N1 / N2 / N3 / REM (in the same order as each column in the corresponding output file)
 - Sleep staging (3 stages): Awake / N1 / N2 (in the same order as each column in the corresponding output file)
+- Sleep staging (6 stages): Awake / N1 / N2 / N3 / REM / Other (in the same order as each column in the corresponding output file)
+- Sleep arousal detection: No / Arousal (binary)
+- Vertex wave detection: No / Vertex wave (binary)
+- BIRD (Brief Ictal Rhythmic Discharge): No / BIRD (binary)
+- BIPD (Bilateral Independent Periodic Discharges): No / BIPD (binary)
+- Partial PD (focal periodic discharges with lateralization): No / Left / Right (in the same order as each column in the corresponding output file)
 ## 📁 Directory Structure
 
 ```
